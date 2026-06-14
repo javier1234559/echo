@@ -1,0 +1,27 @@
+import { memo, SVGProps } from "react";
+
+import { cn } from "@/utils/cn";
+
+interface IAppIconProps extends SVGProps<SVGSVGElement> {
+  src: string;
+}
+
+function AppIcon(props: IAppIconProps) {
+  const { src, className = "", viewBox, width = 16, height = width } = props;
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={viewBox}
+      className={cn(
+        "pointer-events-none h-full w-full duration-300",
+        className,
+      )}
+    >
+      <use href={src} width={width} height={height} />
+    </svg>
+  );
+}
+
+export default memo(AppIcon);
