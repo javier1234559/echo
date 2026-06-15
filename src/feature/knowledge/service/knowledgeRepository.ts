@@ -65,6 +65,7 @@ export const knowledgeRepository = {
     page = 1,
     limit = 12,
     tag?: string,
+    domain?: string,
   ): Promise<{ items: Knowledge[]; total: number }> {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -78,25 +79,43 @@ export const knowledgeRepository = {
       const ids = [...new Set((tagRows ?? []).map((r) => r.knowledge_id as string))];
       if (!ids.length) return { items: [], total: 0 };
 
-      const { data, error, count } = await supabase
+      let q = supabase
         .from("knowledge")
         .select("*, tags(*)", { count: "exact" })
         .in("id", ids)
         .order("created_at", { ascending: false })
         .range(from, to);
+      if (domain) q = q.eq("domain", domain);
 
+      const { data, error, count } = await q;
       if (error) throw new Error(`Fetch failed: ${error.message}`);
       return { items: (data ?? []) as Knowledge[], total: count ?? 0 };
     }
 
-    const { data, error, count } = await supabase
+    let q = supabase
       .from("knowledge")
       .select("*, tags(*)", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
+    if (domain) q = q.eq("domain", domain);
 
+    const { data, error, count } = await q;
     if (error) throw new Error(`Fetch failed: ${error.message}`);
     return { items: (data ?? []) as Knowledge[], total: count ?? 0 };
+  },
+
+  async getDomains(): Promise<{ domain: string; count: number }[]> {
+    const { data, error } = await supabase.from("knowledge").select("domain");
+    if (error || !data) return [];
+
+    const counts: Record<string, number> = {};
+    for (const { domain } of data) {
+      if (domain) counts[domain] = (counts[domain] ?? 0) + 1;
+    }
+
+    return Object.entries(counts)
+      .map(([domain, count]) => ({ domain, count }))
+      .sort((a, b) => b.count - a.count);
   },
 
   async getAllTags(): Promise<{ tag: string; count: number }[]> {
@@ -154,6 +173,30 @@ export const knowledgeRepository = {
       .order("created_at", { ascending: false });
 
     return (rows ?? []) as Knowledge[];
+  },
+
+  async getRelated(excludeId: string, tags: string[], limit = 4): Promise<Knowledge[]> {
+    if (!tags.length) return [];
+
+    const { data: tagRows } = await supabase
+      .from("tags")
+      .select("knowledge_id")
+      .in("tag", tags);
+
+    const ids = [...new Set((tagRows ?? []).map((r) => r.knowledge_id as string))].filter(
+      (id) => id !== excludeId,
+    );
+
+    if (!ids.length) return [];
+
+    const { data } = await supabase
+      .from("knowledge")
+      .select("*, tags(*)")
+      .in("id", ids)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    return (data ?? []) as Knowledge[];
   },
 
   async getPendingReflections(): Promise<Knowledge[]> {

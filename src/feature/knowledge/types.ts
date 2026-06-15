@@ -3,19 +3,19 @@ export type KnowledgeStatus = "saved" | "quick";
 export type ContentType = "knowledge" | "resource";
 
 export const DOMAINS = [
-  "Frontend",
-  "Backend",
+  "Engineering",
   "AI",
   "Automation",
-  "System Design",
-  "DevOps",
-  "Database",
-  "Career",
-  "Mindset",
-  "Productivity",
-  "Business",
   "Design",
-  "English",
+  "Business",
+  "Finance",
+  "Productivity",
+  "Mindset",
+  "Learning",
+  "Language",
+  "Career",
+  "Health",
+  "Lifestyle",
   "Other",
 ] as const;
 
@@ -70,6 +70,7 @@ export interface UpdateKnowledgeInput {
   raw_content?: string;
   summary?: string;
   source_url?: string;
+  domain?: Domain;
   tags?: string[];
 }
 

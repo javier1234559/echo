@@ -10,10 +10,10 @@ export interface KnowledgePage {
 }
 
 export const knowledgeApi = {
-  getPage(page = 1, limit = 12, tag?: string) {
+  getPage(page = 1, limit = 12, tag?: string, domain?: string) {
     return axiosInstance
       .get<KnowledgePage>("/api/knowledge", {
-        params: { page, limit, ...(tag ? { tag } : {}) },
+        params: { page, limit, ...(tag ? { tag } : {}), ...(domain ? { domain } : {}) },
       })
       .then((r) => r.data)
       .catch(handleApiError);
@@ -33,6 +33,24 @@ export const knowledgeApi = {
   getTags() {
     return axiosInstance
       .get<{ tag: string; count: number }[]>("/api/knowledge/tags")
+      .then((r) => r.data)
+      .catch(handleApiError);
+  },
+  getDomains() {
+    return axiosInstance
+      .get<{ domain: string; count: number }[]>("/api/knowledge/domains")
+      .then((r) => r.data)
+      .catch(handleApiError);
+  },
+  getRelated(id: string, tags: string[]) {
+    return axiosInstance
+      .get<Knowledge[]>(`/api/knowledge/${id}/related`, {
+        params: tags.length ? { tag: tags } : {},
+        paramsSerializer: (p) =>
+          Object.entries(p)
+            .flatMap(([k, v]) => (Array.isArray(v) ? v.map((val) => `${k}=${encodeURIComponent(val)}`) : [`${k}=${encodeURIComponent(v)}`]))
+            .join("&"),
+      })
       .then((r) => r.data)
       .catch(handleApiError);
   },

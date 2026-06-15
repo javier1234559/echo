@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, MessageCircle, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { KnowledgeCard } from "@/feature/knowledge/components/knowledge-card";
 import {
   useKnowledgePage,
   useKnowledgeTags,
+  useKnowledgeDomains,
   useSearchKnowledge,
 } from "@/feature/knowledge/hooks/useKnowledge";
+import { DOMAINS } from "@/feature/knowledge/types";
 
 const PAGE_SIZE = 12;
+const TAGS_INITIAL = 10;
+const TAGS_STEP = 10;
 
 function useDebounce(value: string, ms = 300) {
   const [debounced, setDebounced] = useState(value);
@@ -36,16 +40,42 @@ function SkeletonCard() {
   );
 }
 
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-3 py-0.5 text-xs font-medium transition-colors ${
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function DashboardView() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [activeTag, setActiveTag] = useState<string | undefined>();
+  const [activeDomain, setActiveDomain] = useState<string | undefined>();
+  const [tagLimit, setTagLimit] = useState(TAGS_INITIAL);
   const debouncedQuery = useDebounce(query);
 
   const isSearching = debouncedQuery.length >= 2;
 
   const tagsQuery = useKnowledgeTags();
-  const pageQuery = useKnowledgePage(page, PAGE_SIZE, activeTag);
+  const domainsQuery = useKnowledgeDomains();
+  const pageQuery = useKnowledgePage(page, PAGE_SIZE, activeTag, activeDomain);
   const searchQuery = useSearchKnowledge(debouncedQuery);
 
   const items = isSearching ? searchQuery.data : pageQuery.data?.items;
@@ -53,41 +83,93 @@ export function DashboardView() {
   const totalPages = isSearching ? 1 : (pageQuery.data?.totalPages ?? 1);
   const total = isSearching ? (searchQuery.data?.length ?? 0) : (pageQuery.data?.total ?? 0);
 
-  // Reset page when tag or search changes
-  useEffect(() => { setPage(1); }, [activeTag, debouncedQuery]);
+  useEffect(() => { setPage(1); }, [activeTag, activeDomain, debouncedQuery]);
 
   function toggleTag(tag: string) {
     setActiveTag((prev) => (prev === tag ? undefined : tag));
+    setActiveDomain(undefined);
     setQuery("");
   }
+
+  function toggleDomain(domain: string) {
+    setActiveDomain((prev) => (prev === domain ? undefined : domain));
+    setActiveTag(undefined);
+    setQuery("");
+  }
+
+  const allTags = tagsQuery.data ?? [];
+  const visibleTags = allTags.slice(0, tagLimit);
+  const hiddenCount = allTags.length - visibleTags.length;
+
+  // Merge fixed DOMAINS list with actual counts — always show all 14
+  const domainCounts = Object.fromEntries(
+    (domainsQuery.data ?? []).map(({ domain, count }) => [domain, count]),
+  );
+  const domains = DOMAINS.map((d) => ({ domain: d, count: domainCounts[d] ?? 0 }));
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       {/* Header */}
-      <div className="mb-5">
+      <div className="mb-6">
         <h1 className="text-xl font-semibold text-foreground">My Brain</h1>
         <p className="text-sm text-muted-foreground">
           {total === 0 ? "No notes yet" : `${total} note${total !== 1 ? "s" : ""} total`}
         </p>
       </div>
 
-      {/* Tag chips */}
-      {(tagsQuery.data?.length ?? 0) > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {tagsQuery.data!.map(({ tag, count }) => (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className={`rounded-full border px-3 py-0.5 text-xs font-medium transition-colors ${
-                activeTag === tag
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
-              }`}
-            >
-              #{tag}
-              <span className="ml-1 opacity-60">{count}</span>
-            </button>
-          ))}
+      {/* Filter sections */}
+      {(domains.length > 0 || allTags.length > 0) && (
+        <div className="mb-5 space-y-3">
+          {/* Domain section — always show all 14 */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+              Domain
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {domains.map(({ domain, count }) =>
+                count === 0 ? (
+                  <span
+                    key={domain}
+                    className="rounded-full border border-border/40 px-3 py-0.5 text-xs font-medium text-muted-foreground/30 select-none"
+                  >
+                    {domain}
+                    <span className="ml-1">0</span>
+                  </span>
+                ) : (
+                  <Chip key={domain} active={activeDomain === domain} onClick={() => toggleDomain(domain)}>
+                    {domain}
+                    <span className="ml-1 opacity-60">{count}</span>
+                  </Chip>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* Free-form tags section */}
+          {allTags.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                Tags
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {visibleTags.map(({ tag, count }) => (
+                  <Chip key={tag} active={activeTag === tag} onClick={() => toggleTag(tag)}>
+                    #{tag}
+                    <span className="ml-1 opacity-60">{count}</span>
+                  </Chip>
+                ))}
+                {hiddenCount > 0 && (
+                  <button
+                    onClick={() => setTagLimit((prev) => prev + TAGS_STEP)}
+                    className="flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                    +{hiddenCount} more
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -97,11 +179,27 @@ export function DashboardView() {
         <input
           type="text"
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setActiveTag(undefined); }}
+          onChange={(e) => { setQuery(e.target.value); setActiveTag(undefined); setActiveDomain(undefined); }}
           placeholder="Search notes..."
           className="w-full rounded-lg border border-border bg-background py-2.5 pl-9 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-colors"
         />
       </div>
+
+      {/* Active filter hint */}
+      {!isSearching && (activeTag || activeDomain) && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Filtered by{" "}
+          <span className="font-medium text-foreground">
+            {activeTag ? `#${activeTag}` : activeDomain}
+          </span>
+          <button
+            onClick={() => { setActiveTag(undefined); setActiveDomain(undefined); }}
+            className="ml-2 text-primary hover:underline"
+          >
+            clear
+          </button>
+        </p>
+      )}
 
       {/* Loading */}
       {isLoading && (
@@ -120,9 +218,11 @@ export function DashboardView() {
                 ? `No results for "${debouncedQuery}"`
                 : activeTag
                 ? `No notes tagged #${activeTag}`
+                : activeDomain
+                ? `No notes in ${activeDomain}`
                 : "No notes yet"}
             </p>
-            {!isSearching && !activeTag && (
+            {!isSearching && !activeTag && !activeDomain && (
               <p className="mt-1 text-sm text-muted-foreground/70">
                 Send{" "}
                 <code className="rounded bg-muted px-1 py-0.5 text-xs">/capture</code>{" "}
@@ -139,17 +239,6 @@ export function DashboardView() {
           {isSearching && (
             <p className="mb-3 text-xs text-muted-foreground">
               {items.length} result{items.length !== 1 ? "s" : ""} for &quot;{debouncedQuery}&quot;
-            </p>
-          )}
-          {activeTag && !isSearching && (
-            <p className="mb-3 text-xs text-muted-foreground">
-              Filtered by <span className="font-medium text-foreground">#{activeTag}</span>
-              <button
-                onClick={() => setActiveTag(undefined)}
-                className="ml-2 text-primary hover:underline"
-              >
-                clear
-              </button>
             </p>
           )}
           <div className="space-y-3">

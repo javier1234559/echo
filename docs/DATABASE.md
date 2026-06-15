@@ -1,6 +1,39 @@
 # Database Setup — Supabase
 
-Single script. Paste into **Supabase SQL Editor** and run once.
+## Migration: update domain taxonomy (run this to keep existing data)
+
+Paste into **Supabase SQL Editor** and run once. Does NOT delete any rows.
+
+```sql
+-- ─── Drop old domain CHECK constraint ────────────────────────────────────────
+ALTER TABLE public.knowledge DROP CONSTRAINT IF EXISTS knowledge_domain_check;
+
+-- ─── Migrate old domain values → new taxonomy ────────────────────────────────
+-- Frontend / Backend / System Design / DevOps / Database → Engineering
+UPDATE public.knowledge
+SET domain = 'Engineering'
+WHERE domain IN ('Frontend', 'Backend', 'System Design', 'DevOps', 'Database');
+
+-- English → Language
+UPDATE public.knowledge
+SET domain = 'Language'
+WHERE domain = 'English';
+
+-- AI, Automation, Design, Business, Mindset, Productivity, Career, Other → unchanged
+
+-- ─── Add new CHECK constraint ─────────────────────────────────────────────────
+ALTER TABLE public.knowledge
+  ADD CONSTRAINT knowledge_domain_check
+  CHECK (domain IN (
+    'Engineering', 'AI', 'Automation', 'Design', 'Business',
+    'Finance', 'Productivity', 'Mindset', 'Learning', 'Language',
+    'Career', 'Health', 'Lifestyle', 'Other'
+  ));
+```
+
+---
+
+## Full reset (fresh project only — deletes all data)
 
 > ⚠️ This drops all existing tables. Safe to re-run on a fresh project.
 
@@ -23,9 +56,9 @@ CREATE TABLE public.knowledge (
                CHECK (content_type IN ('knowledge', 'resource')),
   domain       text        NOT NULL DEFAULT 'Other'
                CHECK (domain IN (
-                 'Frontend', 'Backend', 'AI', 'Automation', 'System Design',
-                 'DevOps', 'Database', 'Career', 'Mindset', 'Productivity',
-                 'Business', 'Design', 'English', 'Other'
+                 'Engineering', 'AI', 'Automation', 'Design', 'Business',
+                 'Finance', 'Productivity', 'Mindset', 'Learning', 'Language',
+                 'Career', 'Health', 'Lifestyle', 'Other'
                )),
   status       text        NOT NULL DEFAULT 'saved'
                CHECK (status IN ('saved', 'quick')),
