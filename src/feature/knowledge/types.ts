@@ -1,5 +1,25 @@
 export type SourceType = "text" | "url" | "markdown";
 export type KnowledgeStatus = "saved" | "quick";
+export type ContentType = "knowledge" | "resource";
+
+export const DOMAINS = [
+  "Frontend",
+  "Backend",
+  "AI",
+  "Automation",
+  "System Design",
+  "DevOps",
+  "Database",
+  "Career",
+  "Mindset",
+  "Productivity",
+  "Business",
+  "Design",
+  "English",
+  "Other",
+] as const;
+
+export type Domain = (typeof DOMAINS)[number];
 
 export interface Knowledge {
   id: string;
@@ -8,6 +28,8 @@ export interface Knowledge {
   raw_content: string;
   source_url: string | null;
   source_type: SourceType;
+  content_type: ContentType;
+  domain: Domain;
   status: KnowledgeStatus;
   created_at: string;
   updated_at: string;
@@ -37,6 +59,8 @@ export interface CreateKnowledgeInput {
   summary?: string;
   source_url?: string;
   source_type?: SourceType;
+  content_type?: ContentType;
+  domain?: Domain;
   status?: KnowledgeStatus;
   tags?: string[];
 }
@@ -49,10 +73,20 @@ export interface UpdateKnowledgeInput {
   tags?: string[];
 }
 
-// Maps reflection question → section prompt shown in UI
+// User sections — manually filled, never AI-generated
 export const REFLECTION_PROMPTS: Record<string, string> = {
-  Understanding: "Explain in your own words",
-  Opinion: "Do you agree or disagree? Why?",
-  Application: "Where and when will you use this?",
-  Reminder: "One thing your future self should remember",
+  "Why it matters to me": "How does this connect to your goals or current work?",
+  "Possible use cases": "Where could you apply this? What problems could it solve?",
+  Notes: "Any additional thoughts, links, or context to remember?",
+};
+
+// Content type display helpers
+export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
+  knowledge: "Knowledge",
+  resource: "Resource",
+};
+
+export const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
+  knowledge: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  resource: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
 };

@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { aiConfig } from "@/config";
-import type { Knowledge } from "@/feature/knowledge/types";
+import type { Knowledge, ContentType, Domain } from "@/feature/knowledge/types";
+import { DOMAINS } from "@/feature/knowledge/types";
 
 const client = new OpenAI({ apiKey: aiConfig.OPENAI_API_KEY });
 
@@ -8,9 +9,62 @@ const client = new OpenAI({ apiKey: aiConfig.OPENAI_API_KEY });
 
 export interface CaptureResult {
   title: string;
-  tldr: string[];   // 3-5 bullet points
+  content_type: ContentType;
+  domain: Domain;
+  tldr: string[];  // structured lines, rendered as bullets
   tags: string[];
 }
+
+const DOMAIN_LIST = DOMAINS.join(", ");
+
+const SYSTEM_PROMPT = `You are Echo, a personal knowledge assistant that transforms raw content into reusable notes.
+
+STEP 1 — Classify content_type:
+- "knowledge": content that teaches ideas, concepts, explanations, lessons (blog posts, tutorials, articles, videos, mindset posts)
+- "resource": content that provides a reusable tool/website/library/repo/package/reference (GitHub repos, UI libraries, npm packages, online tools, Figma plugins)
+
+STEP 2 — Choose exactly one domain from: ${DOMAIN_LIST}
+Do NOT invent new domains.
+
+STEP 3 — Generate title (max 60 chars, descriptive)
+
+STEP 4 — Generate TL;DR as an array of lines (NOT nested markdown):
+
+For "knowledge":
+[
+  "Core Idea: <one sentence>",
+  "Key Insight: <insight 1>",
+  "Key Insight: <insight 2>",
+  "Takeaway: <actionable takeaway 1>",
+  "Takeaway: <actionable takeaway 2>",
+  "Remember: <one thing to keep in mind>"
+]
+
+For "resource":
+[
+  "What it is: <one sentence>",
+  "Problem solved: <what problem it addresses>",
+  "Key Feature: <feature 1>",
+  "Key Feature: <feature 2>",
+  "When to use: <when to reach for this>"
+]
+
+Rules:
+- Focus on reusable knowledge, not article structure
+- Avoid "The author says..." or "This article explains..."
+- Prefer principles over examples
+- 5-7 lines total
+
+STEP 5 — Generate 3-8 tags: lowercase, kebab-case, avoid generic tags like "article" or "resource"
+
+Respond ONLY with JSON:
+{
+  "title": string,
+  "content_type": "knowledge" | "resource",
+  "domain": string,
+  "tldr": string[],
+  "tags": string[]
+}`;
 
 export async function generateCapture(content: string): Promise<CaptureResult> {
   const completion = await client.chat.completions.create({
@@ -18,29 +72,27 @@ export async function generateCapture(content: string): Promise<CaptureResult> {
     temperature: 0.3,
     response_format: { type: "json_object" },
     messages: [
-      {
-        role: "system",
-        content:
-          "You are a knowledge capture assistant. Given content, extract:\n" +
-          "1. A short descriptive title (max 60 chars)\n" +
-          "2. 3-5 TL;DR bullet points — key insights, each 1-2 sentences\n" +
-          "3. 3-5 lowercase tags (no # symbol)\n\n" +
-          'Respond ONLY with JSON: { "title": string, "tldr": string[], "tags": string[] }',
-      },
-      {
-        role: "user",
-        content: content.slice(0, 4000),
-      },
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: content.slice(0, 4000) },
     ],
   });
 
   const raw = completion.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw) as Partial<CaptureResult>;
 
+  const content_type: ContentType =
+    parsed.content_type === "resource" ? "resource" : "knowledge";
+
+  const domain: Domain = DOMAINS.includes(parsed.domain as Domain)
+    ? (parsed.domain as Domain)
+    : "Other";
+
   return {
     title: parsed.title ?? fallbackTitle(content),
-    tldr: Array.isArray(parsed.tldr) ? parsed.tldr.slice(0, 5) : [],
-    tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 5) : [],
+    content_type,
+    domain,
+    tldr: Array.isArray(parsed.tldr) ? parsed.tldr.slice(0, 8) : [],
+    tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8) : [],
   };
 }
 
@@ -115,7 +167,7 @@ export async function recallKnowledge(
     .slice(0, 6)
     .map((n, i) => {
       const preview = n.summary ?? n.raw_content.slice(0, 200);
-      return `[${i + 1}] ${n.title}\n${preview}`;
+      return `[${i + 1}] ${n.title} [${n.content_type} / ${n.domain}]\n${preview}`;
     })
     .join("\n\n");
 

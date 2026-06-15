@@ -1,105 +1,65 @@
 # Database Setup — Supabase
 
-Paste each block into the **Supabase SQL Editor** in order.
+Single script. Paste into **Supabase SQL Editor** and run once.
 
----
-
-## 1. knowledge
+> ⚠️ This drops all existing tables. Safe to re-run on a fresh project.
 
 ```sql
-create table public.knowledge (
-  id          uuid primary key default gen_random_uuid(),
-  title       text not null,
-  summary     text,
-  raw_content text not null,
-  source_url  text,
-  source_type text not null default 'text',
-  -- source_type values: 'text' | 'url' | 'markdown'
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+-- ─── Drop existing tables (safe reset) ───────────────────────────────────────
+DROP TABLE IF EXISTS public.reflection CASCADE;
+DROP TABLE IF EXISTS public.tags CASCADE;
+DROP TABLE IF EXISTS public.knowledge CASCADE;
+
+-- ─── knowledge ────────────────────────────────────────────────────────────────
+CREATE TABLE public.knowledge (
+  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        text        NOT NULL,
+  summary      text,
+  raw_content  text        NOT NULL,
+  source_url   text,
+  source_type  text        NOT NULL DEFAULT 'text'
+               CHECK (source_type IN ('text', 'url', 'markdown')),
+  content_type text        NOT NULL DEFAULT 'knowledge'
+               CHECK (content_type IN ('knowledge', 'resource')),
+  domain       text        NOT NULL DEFAULT 'Other'
+               CHECK (domain IN (
+                 'Frontend', 'Backend', 'AI', 'Automation', 'System Design',
+                 'DevOps', 'Database', 'Career', 'Mindset', 'Productivity',
+                 'Business', 'Design', 'English', 'Other'
+               )),
+  status       text        NOT NULL DEFAULT 'saved'
+               CHECK (status IN ('saved', 'quick')),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
 );
 
--- Auto-update updated_at on row change
-create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
-create trigger knowledge_set_updated_at
-  before update on public.knowledge
-  for each row execute procedure public.set_updated_at();
-
--- Full Text Search index (title + summary + raw_content)
-create index knowledge_fts_idx on public.knowledge
-  using gin (
-    to_tsvector('english',
-      coalesce(title, '') || ' ' ||
-      coalesce(summary, '') || ' ' ||
-      coalesce(raw_content, '')
-    )
-  );
-```
-
----
-
-## 2. tags
-
-```sql
-create table public.tags (
-  id           uuid primary key default gen_random_uuid(),
-  knowledge_id uuid not null references public.knowledge(id) on delete cascade,
-  tag          text not null,
-  created_at   timestamptz not null default now(),
-  unique (knowledge_id, tag)
+-- ─── tags ─────────────────────────────────────────────────────────────────────
+CREATE TABLE public.tags (
+  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  knowledge_id uuid        NOT NULL REFERENCES public.knowledge(id) ON DELETE CASCADE,
+  tag          text        NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now()
 );
 
-create index tags_knowledge_id_idx on public.tags(knowledge_id);
-create index tags_tag_idx on public.tags(tag);
-```
-
----
-
-## 3. reflection
-
-```sql
-create table public.reflection (
-  id           uuid primary key default gen_random_uuid(),
-  knowledge_id uuid not null references public.knowledge(id) on delete cascade,
-  question     text not null,
+-- ─── reflection (user personal sections — manually filled) ───────────────────
+-- Sections: "Why it matters to me" | "Possible use cases" | "Notes"
+CREATE TABLE public.reflection (
+  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  knowledge_id uuid        NOT NULL REFERENCES public.knowledge(id) ON DELETE CASCADE,
+  question     text        NOT NULL,
   answer       text,
-  -- answer is null until the user replies
-  created_at   timestamptz not null default now(),
+  created_at   timestamptz NOT NULL DEFAULT now(),
   answered_at  timestamptz
 );
 
-create index reflection_knowledge_id_idx on public.reflection(knowledge_id);
-create index reflection_unanswered_idx on public.reflection(knowledge_id) where answer is null;
-```
+-- ─── Disable RLS (single-user app, no auth) ───────────────────────────────────
+ALTER TABLE public.knowledge  DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tags       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reflection DISABLE ROW LEVEL SECURITY;
 
----
-
-## 4. Row Level Security
-
-This is a single-user app with no auth. Disable RLS so the service role key
-can read/write freely from the API routes.
-
-```sql
-alter table public.knowledge  disable row level security;
-alter table public.tags       disable row level security;
-alter table public.reflection disable row level security;
-```
-
----
-
-## 5. Verify
-
-```sql
-select table_name
-from information_schema.tables
-where table_schema = 'public'
-order by table_name;
--- Should return: knowledge, reflection, tags
+-- ─── Indexes ──────────────────────────────────────────────────────────────────
+CREATE INDEX ON public.knowledge (created_at DESC);
+CREATE INDEX ON public.tags (knowledge_id);
+CREATE INDEX ON public.tags (tag);
+CREATE INDEX ON public.reflection (knowledge_id);
 ```

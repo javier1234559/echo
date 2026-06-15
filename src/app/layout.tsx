@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Echo",
   description: "Echo — Remember Less. Think More. Your personal AI second brain.",
+  other: {
+    "apple-mobile-web-app-title": "Echo",
+  },
 };
 
 export default function RootLayout({

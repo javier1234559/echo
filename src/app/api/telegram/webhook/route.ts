@@ -16,7 +16,7 @@ import type { PendingCapture } from "@/lib/captureState";
 import type { SourceType } from "@/feature/knowledge/types";
 import { REFLECTION_PROMPTS } from "@/feature/knowledge/types";
 
-const REFLECTION_SECTIONS = ["Understanding", "Opinion", "Application", "Reminder"];
+const REFLECTION_SECTIONS = ["Why it matters to me", "Possible use cases", "Notes"];
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -75,11 +75,12 @@ async function sendWithOptionalButtons(
 
 function buildCapturePreview(capture: {
   title: string;
+  contentType: string;
+  domain: string;
   tldr: string[];
   tags: string[];
   sourceType: SourceType;
   sourceUrl?: string;
-  content: string;
 }): string {
   const date = new Date().toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric",
@@ -91,13 +92,11 @@ function buildCapturePreview(capture: {
     ? capture.tldr.map((b) => `• ${escapeHtml(b)}`).join("\n")
     : "—";
 
-  const source = capture.sourceUrl
-    ? `<a href="${capture.sourceUrl}">${escapeHtml(capture.sourceUrl.slice(0, 60))}</a>`
-    : `<i>${capture.sourceType}</i>`;
+  const typeIcon = capture.contentType === "resource" ? "🔧" : "📚";
 
   return (
-    `📝 <b>${escapeHtml(capture.title)}</b>\n\n` +
-    `🔗 ${source}\n` +
+    `${typeIcon} <b>${escapeHtml(capture.title)}</b>\n` +
+    `<i>${capture.contentType} · ${capture.domain}</i>\n\n` +
     `🏷 ${tagLine}\n` +
     `📅 ${date}\n\n` +
     `<b>TL;DR</b>\n${tldrLine}`
@@ -128,12 +127,16 @@ async function handleCapture(args: string, chatId: number) {
   let title = args.split("\n")[0].slice(0, 60);
   let tldr: string[] = [];
   let tags: string[] = [];
+  let contentType: import("@/feature/knowledge/types").ContentType = "knowledge";
+  let domain: import("@/feature/knowledge/types").Domain = "Other";
 
   try {
     const ai = await generateCapture(args);
     title = ai.title;
     tldr = ai.tldr;
     tags = ai.tags;
+    contentType = ai.content_type;
+    domain = ai.domain;
   } catch {
     // AI failed — proceed with fallback
   }
@@ -146,15 +149,18 @@ async function handleCapture(args: string, chatId: number) {
     tags,
     sourceType,
     sourceUrl: isUrl ? args : undefined,
+    contentType,
+    domain,
   });
 
   const preview = buildCapturePreview({
     title,
+    contentType,
+    domain,
     tldr,
     tags,
     sourceType,
     sourceUrl: isUrl ? args : undefined,
-    content: args,
   });
 
   const sent = await sendMessageWithButtons(chatId, preview, CAPTURE_BUTTONS(pending.id));
@@ -267,6 +273,8 @@ async function handleApprove(captureId: string, chatId: number, callbackId: stri
     summary: pending.tldr.join("\n"),
     source_type: pending.sourceType,
     source_url: pending.sourceUrl,
+    content_type: pending.contentType,
+    domain: pending.domain,
     tags: pending.tags,
   });
 
@@ -284,11 +292,12 @@ async function handleApprove(captureId: string, chatId: number, callbackId: stri
     await editMessage(chatId, msgId, `✅ <b>Saved!</b>`, keyboard);
   }
 
-  // Ask first reflection question
+  // Ask first user section question
+  const firstSection = REFLECTION_SECTIONS[0];
   await sendMessage(
     chatId,
-    `🧠 <b>Thêm suy ngẫm của bạn</b> (1/4)\n\n` +
-      `<b>Understanding</b>\n${escapeHtml(REFLECTION_PROMPTS.Understanding)}\n\n` +
+    `✍️ <b>Ghi chú cá nhân</b> (1/3)\n\n` +
+      `<b>${firstSection}</b>\n${escapeHtml(REFLECTION_PROMPTS[firstSection])}\n\n` +
       `Gõ câu trả lời • /skip bỏ qua • /done kết thúc`,
   );
 }
@@ -314,7 +323,7 @@ async function handleReflectionAnswer(text: string, chatId: number, pending: Pen
     const nextSection = REFLECTION_SECTIONS[nextStep];
     await sendMessage(
       chatId,
-      `💭 <b>${nextSection}</b> (${nextStep + 1}/4)\n\n${escapeHtml(REFLECTION_PROMPTS[nextSection])}\n\n` +
+      `✍️ <b>${nextSection}</b> (${nextStep + 1}/3)\n\n${escapeHtml(REFLECTION_PROMPTS[nextSection])}\n\n` +
         `/skip bỏ qua • /done kết thúc`,
     );
   }
@@ -342,7 +351,7 @@ async function handleReflectionSkip(chatId: number) {
     const nextSection = REFLECTION_SECTIONS[nextStep];
     await sendMessage(
       chatId,
-      `⏭ <b>${nextSection}</b> (${nextStep + 1}/4)\n\n${escapeHtml(REFLECTION_PROMPTS[nextSection])}\n\n` +
+      `⏭ <b>${nextSection}</b> (${nextStep + 1}/3)\n\n${escapeHtml(REFLECTION_PROMPTS[nextSection])}\n\n` +
         `/skip bỏ qua • /done kết thúc`,
     );
   }
@@ -386,11 +395,12 @@ async function handleAsk(captureId: string, chatId: number, callbackId: string, 
       msgId,
       buildCapturePreview({
         title: pending.title,
+        contentType: pending.contentType,
+        domain: pending.domain,
         tldr: pending.tldr,
         tags: pending.tags,
         sourceType: pending.sourceType,
         sourceUrl: pending.sourceUrl,
-        content: pending.content,
       }) + "\n\n<i>💬 Ask mode active</i>",
     );
   }

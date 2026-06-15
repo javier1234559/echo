@@ -28,7 +28,7 @@ export default function Home() {
         {[
           { icon: MessageCircle, title: "Capture via Telegram", desc: "Send /capture or /quick to your bot anytime" },
           { icon: Search, title: "Search instantly", desc: "Full-text search across all your notes" },
-          { icon: Zap, title: "AI-powered (soon)", desc: "Auto-summary and tags with Gemini Flash" },
+          { icon: Zap, title: "AI-powered", desc: "Auto-summary and tags with GPT-4o" },
         ].map(({ icon: Icon, title, desc }) => (
           <div key={title} className="rounded-xl border border-border p-5 text-left">
             <Icon className="mb-3 h-5 w-5 text-primary" />

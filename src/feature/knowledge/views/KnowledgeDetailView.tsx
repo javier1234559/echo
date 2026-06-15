@@ -10,7 +10,7 @@ import {
   useDeleteKnowledge,
   useUpdateReflection,
 } from "@/feature/knowledge/hooks/useKnowledge";
-import { REFLECTION_PROMPTS } from "@/feature/knowledge/types";
+import { REFLECTION_PROMPTS, CONTENT_TYPE_COLORS } from "@/feature/knowledge/types";
 
 interface Props {
   id: string;
@@ -290,8 +290,14 @@ export function KnowledgeDetailView({ id }: Props) {
             className="text-foreground"
           />
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-foreground/50">type:</span>
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${CONTENT_TYPE_COLORS[knowledge.content_type ?? "knowledge"]}`}>
+            {knowledge.content_type ?? "knowledge"}
+          </span>
+        </div>
+        <div><span className="text-foreground/50">domain:</span> {knowledge.domain ?? "—"}</div>
         <div><span className="text-foreground/50">source:</span> {knowledge.source_url ?? "—"}</div>
-        <div><span className="text-foreground/50">type:</span> {knowledge.source_type}</div>
         <div>
           <span className="text-foreground/50">tags:</span>{" "}
           {knowledge.tags?.length
@@ -311,7 +317,7 @@ export function KnowledgeDetailView({ id }: Props) {
             {knowledge.status === "quick"
               ? "quick"
               : pendingReflections > 0
-              ? `pending reflection (${pendingReflections})`
+              ? `pending (${pendingReflections} section)`
               : "complete"}
           </span>
         </div>
@@ -334,10 +340,10 @@ export function KnowledgeDetailView({ id }: Props) {
         )}
       </section>
 
-      {/* ── My Take ── */}
+      {/* ── Personal Notes ── */}
       {knowledge.status !== "quick" && (
         <section className="mb-8">
-          <SectionLabel>My Take</SectionLabel>
+          <SectionLabel>Personal Notes</SectionLabel>
           <div className="space-y-3">
             {Object.entries(REFLECTION_PROMPTS).map(([section, prompt]) => {
               const reflection = reflectionMap[section];

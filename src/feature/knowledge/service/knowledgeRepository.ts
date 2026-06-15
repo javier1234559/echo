@@ -1,8 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import type { Knowledge, CreateKnowledgeInput, UpdateKnowledgeInput } from "@/feature/knowledge/types";
 
-// Reflection section names — must match REFLECTION_PROMPTS keys in types.ts
-const REFLECTION_SECTIONS = ["Understanding", "Opinion", "Application", "Reminder"];
+// User section names — must match REFLECTION_PROMPTS keys in types.ts
+const REFLECTION_SECTIONS = ["Why it matters to me", "Possible use cases", "Notes"];
 
 export const knowledgeRepository = {
   async create(input: CreateKnowledgeInput): Promise<Knowledge> {
@@ -16,6 +16,8 @@ export const knowledgeRepository = {
         summary: data.summary ?? null,
         source_url: data.source_url ?? null,
         source_type: data.source_type ?? "text",
+        content_type: data.content_type ?? "knowledge",
+        domain: data.domain ?? "Other",
         status: data.status ?? "saved",
       })
       .select()
