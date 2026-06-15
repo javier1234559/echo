@@ -85,7 +85,7 @@ function InlineEdit({
         </div>
         <button
           onClick={() => { setDraft(value); setEditing(true); }}
-          className="absolute -right-6 top-0 hidden rounded p-1 hover:bg-muted group-hover:flex"
+          className="absolute top-0 right-0 flex rounded p-1 hover:bg-muted md:-right-6 md:hidden md:group-hover:flex"
           title="Edit"
         >
           <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -202,7 +202,7 @@ function TagEditor({
           }
           <button
             onClick={() => { setDraft(tags); setEditing(true); }}
-            className="hidden rounded p-0.5 hover:bg-muted group-hover:block"
+            className="flex rounded p-0.5 hover:bg-muted md:hidden md:group-hover:flex"
             title="Edit tags"
           >
             <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -350,7 +350,7 @@ function TldrEditor({
         )}
         <button
           onClick={() => { setDraft(bullets.join("\n")); setEditing(true); }}
-          className="absolute right-0 top-0 hidden rounded p-1 hover:bg-muted group-hover:flex"
+          className="absolute right-0 top-0 flex rounded p-1 hover:bg-muted md:hidden md:group-hover:flex"
           title="Edit TL;DR"
         >
           <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
@@ -435,7 +435,7 @@ function DomainEditor({
           <span className="text-sm text-foreground/80">{value}</span>
           <button
             onClick={() => { setInput(value); setEditing(true); }}
-            className="hidden rounded p-0.5 hover:bg-muted group-hover:block"
+            className="flex rounded p-0.5 hover:bg-muted md:hidden md:group-hover:flex"
             title="Edit domain"
           >
             <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -522,7 +522,7 @@ function ReflectionCard({
         {!editing && (
           <button
             onClick={() => { setDraft(answer ?? ""); setEditing(true); }}
-            className="hidden rounded p-1 hover:bg-muted group-hover:block"
+            className="flex rounded p-1 hover:bg-muted md:hidden md:group-hover:flex"
             title="Edit"
           >
             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
